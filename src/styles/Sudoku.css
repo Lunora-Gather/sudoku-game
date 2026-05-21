@@ -106,6 +106,7 @@ button, .history-item, .modal-btn, .num-btn, .top-btn, .bottom-btn {
 .header {
   text-align: center;
   margin-bottom: 25px; /* Increased from 10px */
+  padding-left: 8px;   /* Final micro-adjustment to 8px */
 }
 
 .header h1 {
@@ -119,15 +120,15 @@ button, .history-item, .modal-btn, .num-btn, .top-btn, .bottom-btn {
   font-size: 0.9rem;
   color: var(--text-secondary);
   font-weight: bold;
-  letter-spacing: 6px;
-  margin-top: 2px;
+  letter-spacing: 4px;
+  margin-top: 8px;
 }
 
 .dark-mode-toggle {
   position: absolute;
-  right: -120px; /* Moved right by two more intervals */
-  top: 50%;
-  transform: translateY(-50%) scaleX(-1); /* Flipped horizontally */
+  right: -100px; 
+  top: 65%;     
+  transform: translateY(-50%) scaleX(-1);
   background: none;
   border: none;
   padding: 0;
