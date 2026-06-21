@@ -373,7 +373,7 @@ function App() {
       <header className="header" style={{ position: 'relative' }}>
         <h1>Sudoku</h1>
         <div style={{ position: 'relative', display: 'inline-block' }}>
-          <div className="signature">WJH & WZX</div>
+          <div className="signature">WJH</div>
           <button 
             className="dark-mode-toggle" 
             onClick={() => setIsDarkMode(!isDarkMode)}

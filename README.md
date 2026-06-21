@@ -2,7 +2,7 @@
 
 A high-performance, professional-grade Sudoku experience built with React 19 and TypeScript. Engineered for stability, visual elegance, and ultra-smooth gameplay.
 
-**[🎮 Play Now on GitHub Pages](https://wangjiehu.github.io/sudoku-game)**
+**[🎮 Play Now on GitHub Pages](https://lunora-gather.github.io/sudoku-game)**
 
 ---
 
