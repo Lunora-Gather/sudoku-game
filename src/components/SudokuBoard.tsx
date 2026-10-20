@@ -1,98 +1,155 @@
-import React from 'react';
-import { Board, Position, RegionMap, CLASSIC_REGION_MAP } from '../utils/sudoku';
+import { KeyboardEvent, memo, useCallback, useMemo, useRef } from 'react';
+import type { Board, GameType, Position, RegionMap } from '../sudoku/types';
+import { compileTopology } from '../sudoku/topology';
+import { Notes } from '../game/model';
 import Cell from './Cell';
-
-interface SudokuBoardProps {
+interface Props {
   board: Board;
-  notes: number[][][];
+  notes: Notes;
   initialBoard: Board;
   selectedCell: Position | null;
   errorCells: Position[];
   isPaused: boolean;
-  regionMap?: RegionMap;
-  isDiagonal?: boolean;
+  regionMap: RegionMap;
+  type: GameType;
   onCellClick: (row: number, col: number) => void;
 }
-
-const SudokuBoard: React.FC<SudokuBoardProps> = ({ 
-  board, 
-  notes, 
-  initialBoard, 
-  selectedCell, 
-  errorCells, 
+function SudokuBoard({
+  board,
+  notes,
+  initialBoard,
+  selectedCell,
+  errorCells,
   isPaused,
-  regionMap = CLASSIC_REGION_MAP,
-  isDiagonal = false,
-  onCellClick 
-}) => {
-  const isError = (r: number, c: number) => errorCells.some(([er, ec]) => er === r && ec === c);
-  const isSelected = (r: number, c: number) => selectedCell?.[0] === r && selectedCell?.[1] === c;
-  
-  const isHighlighted = (r: number, c: number) => {
-    if (!selectedCell) return false;
-    const [sr, sc] = selectedCell;
-    if (r === sr || c === sc) return true;
-    
-    return regionMap[r][c] === regionMap[sr][sc];
+  regionMap,
+  type,
+  onCellClick,
+}: Props) {
+  const cells = useRef<(HTMLButtonElement | null)[]>([]);
+  const isDiagonal = type === 'Diagonal 9x9';
+  const topology = useMemo(
+    () => compileTopology(regionMap, isDiagonal),
+    [regionMap, isDiagonal],
+  );
+  const borders = useMemo(
+    () =>
+      topology.regions.map((region, cell) => ({
+        top: cell >= 9 && topology.regions[cell - 9] !== region,
+        right: cell % 9 < 8 && topology.regions[cell + 1] !== region,
+        bottom: cell < 72 && topology.regions[cell + 9] !== region,
+        left: cell % 9 > 0 && topology.regions[cell - 1] !== region,
+      })),
+    [topology],
+  );
+  const cellRefs = useMemo(
+    () =>
+      Array.from(
+        { length: 81 },
+        (_, cell) => (element: HTMLButtonElement | null) => {
+          cells.current[cell] = element;
+        },
+      ),
+    [],
+  );
+  const select = useCallback(
+    (row: number, col: number) => {
+      if (!isPaused) onCellClick(row, col);
+    },
+    [isPaused, onCellClick],
+  );
+  const selectedIndex = selectedCell
+    ? selectedCell[0] * 9 + selectedCell[1]
+    : -1;
+  const highlighted = useMemo(
+    () => new Set(topology.peers[selectedIndex] ?? []),
+    [topology, selectedIndex],
+  );
+  const errors = useMemo(
+    () => new Set(errorCells.map(([r, c]) => r * 9 + c)),
+    [errorCells],
+  );
+  const move = (event: KeyboardEvent) => {
+    if (isPaused || !event.key.startsWith('Arrow')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const [r, c] = selectedCell ?? [0, 0];
+    const nextR = Math.max(
+      0,
+      Math.min(
+        8,
+        r + (event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0),
+      ),
+    );
+    const nextC = Math.max(
+      0,
+      Math.min(
+        8,
+        c +
+          (event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0),
+      ),
+    );
+    cells.current[nextR * 9 + nextC]?.focus({ preventScroll: true });
   };
-
-  const getBorders = (r: number, c: number) => {
-    const regionId = regionMap[r][c];
-    return {
-      top: r > 0 && regionMap[r - 1][c] !== regionId,
-      right: c < 8 && regionMap[r][c + 1] !== regionId,
-      bottom: r < 8 && regionMap[r + 1][c] !== regionId,
-      left: c > 0 && regionMap[r][c - 1] !== regionId,
-    };
-  };
-
   return (
     <div className="sudoku-board-container">
-      <div className="sudoku-board">
+      <div
+        role="grid"
+        aria-label={
+          isDiagonal
+            ? 'Diagonal Sudoku board'
+            : type === 'Irregular 9x9'
+              ? 'Irregular Sudoku board'
+              : 'Sudoku board'
+        }
+        aria-rowcount={9}
+        aria-colcount={9}
+        aria-hidden={isPaused || undefined}
+        inert={isPaused || undefined}
+        className="sudoku-board"
+        onKeyDown={move}
+      >
         {isDiagonal && (
-          <svg 
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-              zIndex: 1
-            }}
-          >
-            <line 
-              x1="5.55%" y1="5.55%" x2="94.44%" y2="94.44%" 
-              stroke="var(--diag-color)" 
-              strokeWidth="1"
-              strokeDasharray="4,4" 
-            />
-            <line 
-              x1="94.44%" y1="5.55%" x2="5.55%" y2="94.44%" 
-              stroke="var(--diag-color)" 
-              strokeWidth="1"
-              strokeDasharray="4,4" 
-            />
+          <svg className="diagonal-guide" aria-hidden="true">
+            <line x1="5.55%" y1="5.55%" x2="94.44%" y2="94.44%" />
+            <line x1="94.44%" y1="5.55%" x2="5.55%" y2="94.44%" />
           </svg>
         )}
-        {board.map((row, rowIndex) => 
-          row.map((cell, colIndex) => (
-            <Cell 
-              key={`${rowIndex}-${colIndex}`}
-              value={cell}
-              notes={notes[rowIndex][colIndex]}
-              isFixed={initialBoard[rowIndex][colIndex] !== null}
-              isSelected={isSelected(rowIndex, colIndex)}
-              isError={isError(rowIndex, colIndex)}
-              isHighlighted={isHighlighted(rowIndex, colIndex)}
-              borders={getBorders(rowIndex, colIndex)}
-              onClick={() => !isPaused && onCellClick(rowIndex, colIndex)}
-            />
-          ))
-        )}
+        {board.map((row, r) => (
+          <div role="row" key={r} className="sudoku-row">
+            {row.map((value, c) => {
+              const selected =
+                selectedCell?.[0] === r && selectedCell?.[1] === c;
+              return (
+                <Cell
+                  key={c}
+                  value={value}
+                  row={r}
+                  col={c}
+                  region={regionMap[r][c]}
+                  isDiagonal={isDiagonal}
+                  notes={notes[r][c]}
+                  isFixed={initialBoard[r][c] !== null}
+                  isSelected={selected}
+                  isHighlighted={highlighted.has(r * 9 + c)}
+                  isError={errors.has(r * 9 + c)}
+                  tabIndex={
+                    selected || (!selectedCell && r === 0 && c === 0) ? 0 : -1
+                  }
+                  borders={borders[r * 9 + c]}
+                  onSelect={select}
+                  cellRef={cellRefs[r * 9 + c]}
+                />
+              );
+            })}
+          </div>
+        ))}
       </div>
+      {isPaused && (
+        <div className="board-pause-cover" role="status">
+          Paused
+        </div>
+      )}
     </div>
   );
-};
-
-export default SudokuBoard;
+}
+export default memo(SudokuBoard);
